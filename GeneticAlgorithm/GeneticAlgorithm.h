@@ -8,6 +8,9 @@
 #include "IGeneticAlgorithmStrategy.h"
 #include "Utils.h"
 
+namespace GeneticAlgorithm
+{
+
 /**
  * @brief Класс реализующий решение оптимизационной задачи генетическим алгоритмом
  * Реализован посредством паттерна стратегия
@@ -34,13 +37,26 @@ public:
      * @param strategy - описание исследуемой функции
      */
     explicit GeneticAlgorithm(
-            const ISelectionFunctionPtr<Value, S>& selector,
-            const IParentChoiserPtr<Genotype, Value>& parent_choiser,
-            const IGeneticAlgorithmStrategyPtr<Genotype, Value>& strategy)
+            const ISelectionFunctionPtr<Value, S, N>& selector,
+            const IParentChoiserPtr<Genotype, Value, N>& parent_choiser,
+            const IGeneticAlgorithmStrategyPtr<Genotype, Value, N>& strategy)
             : selector_(selector)
             , parent_choiser_(parent_choiser)
             , strategy_(strategy)
-    {}
+    {
+        if (!selector)
+        {
+            throw std::runtime_error("Empty selector");
+        }
+        if (!parent_choiser)
+        {
+            throw std::runtime_error("Empty parent chooser");
+        }
+        if (!strategy)
+        {
+            throw std::runtime_error("Empty strategy");
+        }
+    }
 
     /**
      * @brief Метод выполняет расчет оптимизационной задачи
@@ -77,7 +93,7 @@ protected:
      * @param score_population[out] - значение функции
      */
     void ApplyFitnessFuntionToPopulation(const Population& population,
-            const ScorePopulation& score_population) const
+            ScorePopulation& score_population) const
     {
         for (size_t index = 0; index < population.size(); ++index)
         {
@@ -112,7 +128,7 @@ protected:
             throw std::runtime_error("Incorrect size survivors");
         }
 
-        const auto& survivors_index = GetSurvivorIndex();
+        const auto& survivors_index = GetSurvivorIndex(survivors);
         for (size_t index = 0; index < survivors.size(); ++index)
         {
             if (!survivors[index])
@@ -163,11 +179,12 @@ private:
 
     ISelectionFunctionPtr<Value, S, N> selector_ = nullptr;
     IParentChoiserPtr<Genotype, Value, N> parent_choiser_ = nullptr;
-    IGeneticAlgorithmStrategyPtr<Genotype, Value> strategy_ = nullptr;
+    IGeneticAlgorithmStrategyPtr<Genotype, Value, N> strategy_ = nullptr;
 
     Population current_population_;
     ScorePopulation current_population_score_;
 };
 
+} // GeneticAlgorithm
 
 #endif //LAB_GENETICALGORITHM_H

@@ -1,21 +1,28 @@
 #include <iostream>
 
-#include "GeneticAlgorithm/GeneticAlgorithm.h"
+#include "GeneticAlgorithmFactory.h"
 #include "TestGeneticAlgorithm.h"
 
 int main()
 {
-    auto selection_function =
-            std::make_shared<SimpleSelectionFunction<double>>(
-                    SimpleSelectionFunction<double>());
-    auto parent_chooser =
-            std::make_shared<SimpleParentChooser<Point, double>>(
-                    SimpleParentChooser<Point, double>(Point::GetLength));
-    auto genetic_algorithm_strategy =
-            std::make_shared<SimpleGeneticAlgorithmStrategy<Point, double>>(
-                    SimpleGeneticAlgorithmStrategy<Point, double>());
-    GeneticAlgorithm<Point, 10, 1000, double, 20> ga(selection_function, parent_chooser, genetic_algorithm_strategy);
-    const std::array<Point, 1000> &result = ga.Calculation(1000);
-    std::cout << std::min_element(result.begin(), result.end()) << std::endl;
+    const auto& parameter = std::make_shared<GeneticAlgorithm::GeneticAlgorithmParameter>();
+    {
+        parameter->strategy_ = "simple_strategy";
+        parameter->chooser_ = "simple_chooser";
+        parameter->selector_ = "simple_selector";
+    }
+
+    const auto& factory = std::make_shared<GeneticAlgorithm::GeneticAlgorithmFactory>();
+    const std::array<Point, 100> &result =
+            factory->GetGeneticAlgorithm<Point, 10, 100, double, 20>(parameter).Calculation(100);
+
+    const auto& strategy = factory->GetStrategy<Point, double, 100>(parameter);
+
+    const auto& result_point = std::min_element(result.begin(), result.end(),
+            [strategy](const auto& one, const auto& two)
+            {
+                return strategy->FitnessFunction(one) < strategy->FitnessFunction(two);
+            });
+    std::cout << result_point->to_string() << std::endl;
     return 0;
 }

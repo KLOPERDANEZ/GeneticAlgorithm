@@ -4,6 +4,9 @@
 #include <array>
 #include <memory>
 
+namespace GeneticAlgorithm
+{
+
 /**
  * \brief Интерфейс класса для функции селекции
  * @tparam Value - тип результата вычисления функции от гетотипа
@@ -25,5 +28,7 @@ public:
 
 template <typename Value = double, size_t S = 20, size_t N = 1000>
 using ISelectionFunctionPtr = std::shared_ptr<ISelectionFunction<Value, S, N>>;
+
+}
 
 #endif //LAB_ISELECTIONFUNCTION_H

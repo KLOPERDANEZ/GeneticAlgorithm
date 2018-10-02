@@ -3,6 +3,9 @@
 
 #include <memory>
 
+namespace GeneticAlgorithm
+{
+
 /**
  * @brief Описание функции для которой вызывается генетический алгоритм
  * @tparam Genotype - генотип
@@ -57,5 +60,7 @@ public:
 
 template <typename Genotype, typename Value = double, size_t N = 1000>
 using IGeneticAlgorithmStrategyPtr = std::shared_ptr<IGeneticAlgorithmStrategy<Genotype, Value, N>>;
+
+} // GeneticAlgorithm
 
 #endif //LAB_IGENETICALGORITHMSTRATEGY_H

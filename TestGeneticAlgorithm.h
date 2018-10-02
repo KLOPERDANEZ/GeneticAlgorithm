@@ -14,6 +14,10 @@ class Point
     double x_, y_, z_;
 
 public:
+
+    Point() : x_(0.0), y_(0.0), z_(0.0)
+    {}
+
     explicit Point(double x, double y, double z) : x_(x), y_(y), z_(z)
     {}
 
@@ -62,9 +66,8 @@ public:
     }
 };
 
-
 template <typename Genotype, typename Value, size_t N = 1000>
-class SimpleParentChooser : public IParentChoiser<Genotype, Value, N>
+class SimpleParentChooser : public GeneticAlgorithm::IParentChoiser<Genotype, Value, N>
 {
     using Population = std::array<Genotype, N>;
 public:
@@ -80,7 +83,8 @@ public:
         {
             length_score[index] = length_(parent, population[index]);
         }
-        auto& parent_iter = std::find(length_score.begin(), length_score.end(), 0.0);
+        const double zero_length = 0.0;
+        const auto& parent_iter = std::find(length_score.begin(), length_score.end(), zero_length);
         *parent_iter = std::numeric_limits<double>::min();
         return static_cast<size_t>(std::distance(
                 std::begin(length_score),
@@ -92,7 +96,7 @@ private:
 };
 
 template <typename Value = double, size_t S = 20, size_t N = 1000>
-class SimpleSelectionFunction : public ISelectionFunction<Value, S, N>
+class SimpleSelectionFunction : public GeneticAlgorithm::ISelectionFunction<Value, S, N>
 {
     using ScorePopulation = std::array<Value, N>;
 public:
@@ -103,14 +107,14 @@ public:
 };
 
 template <typename Genotype = Point, typename Value = double, size_t N = 1000>
-class SimpleGeneticAlgorithmStrategy : public IGeneticAlgorithmStrategy<Genotype, Value, N>
+class SimpleGeneticAlgorithmStrategy : public GeneticAlgorithm::IGeneticAlgorithmStrategy<Genotype, Value, N>
 {
     using Population = std::array<Genotype, N>;
     using ScorePopulation = std::array<Value, N>;
     using Survivors = std::array<bool, N>;
 
 public:
-    Population CreateStartPopulation() const override 
+    Population CreateStartPopulation() const override
     {
         Population start_population;
         const Point low(-100.0, -100.0, -100.0);
@@ -120,6 +124,7 @@ public:
         {
             val = Point::GetRandomPoint(low, high);
         }
+        return start_population;
     }
 
     Genotype Mutation(const Genotype &genotype) const override 
@@ -147,8 +152,7 @@ public:
 
     bool IsCorrectResult(const Population &population, const ScorePopulation &score_population) const override 
     {
-
-        Value min_value = std::min_element(score_population.begin(), score_population.end());
+        Value min_value = *std::min_element(score_population.begin(), score_population.end());
         if ((last_result_ - min_value) < 1E-6)
         {
             return true;
@@ -158,7 +162,7 @@ public:
     }
 
 private:
-    Value last_result_ = 0;
+    mutable Value last_result_ = 0.0;
     const Randomizer& randomizer_ = Randomizer::GetInstance();
 };
 

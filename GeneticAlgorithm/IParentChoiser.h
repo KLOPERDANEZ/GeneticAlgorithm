@@ -3,6 +3,9 @@
 
 #include <memory>
 
+namespace GeneticAlgorithm
+{
+
 /**
  * @brief Реализует стратегию выбора родителя
  * @tparam Genotype - генотип
@@ -26,5 +29,6 @@ public:
 template <typename Genotype, typename Value, size_t N = 1000>
 using IParentChoiserPtr = std::shared_ptr<IParentChoiser<Genotype, Value, N>>;
 
+} // GeneticAlgorithm
 
 #endif //LAB_IPARENTCHOISER_H
