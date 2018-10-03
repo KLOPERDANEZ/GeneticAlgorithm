@@ -18,7 +18,7 @@ namespace GeneticAlgorithm
  * @tparam Genotype - генотип минимизируемой функции
  * @tparam M - процент мутируемых особей
  * @tparam N - размер популяции
- * @tparam Value - тип результата вычисления функции от гетотипа
+ * @tparam Value - тип результата вычисления функции от генотипа
  * @tparam S - процент выживших генов в популяции
  */
 template <typename Genotype, size_t M = 10, size_t N = 1000, typename Value = double, size_t S = 20>
@@ -44,6 +44,8 @@ public:
             , parent_choiser_(parent_choiser)
             , strategy_(strategy)
     {
+        static_assert(M < 100 && S < 100, "Incorrect parameter genetic algorithm");
+
         if (!selector)
         {
             throw std::runtime_error("Empty selector");
@@ -63,7 +65,7 @@ public:
      * @param limit - максимальное количество итераций, по умолчанию 1000
      * @return возвращает лучшую популяцию
      */
-    Population Calculation(size_t limit = 1000)
+    std::pair<Population, ScorePopulation> Calculation(size_t limit = 1000)
     {
         current_population_ = strategy_->CreateStartPopulation();
         CalculationCurrentPopulationFitness();
@@ -74,7 +76,7 @@ public:
             ApplyMutationToPopulation(current_population_);
             CalculationCurrentPopulationFitness();
         }
-        return current_population_;
+        return { current_population_, current_population_score_ };
     }
 
 protected:
@@ -103,7 +105,7 @@ protected:
     }
 
     /**
-     * @brief Применение мутаций к популяции
+     * @brief Применение мутаций к mutation_count генотипам в популяции
      * @param population[in, out] - популяция к которой применяем мутации
      */
     void ApplyMutationToPopulation(Population& population) const
@@ -123,18 +125,14 @@ protected:
      */
     void ApplyCrossingoverToPopulation(const Survivors& survivors, Population& population) const
     {
-        if (survivors.size() != population.size())
-        {
-            throw std::runtime_error("Incorrect size survivors");
-        }
-
-        const auto& survivors_index = GetSurvivorIndex(survivors);
+        const auto& survivors_indices = GetSurvivorIndices(survivors);
         for (size_t index = 0; index < survivors.size(); ++index)
         {
-            if (!survivors[index])
+            if (std::find(survivors_indices.begin(), survivors_indices.begin() + survivor_count, index) ==
+            		survivors_indices.begin() + survivor_count)
             {
                 const size_t survivor_index = randomizer_.GetNumber(0, survivor_count);
-                const size_t genotype_index = survivors_index[survivor_index];
+                const size_t genotype_index = survivors_indices[survivor_index];
                 const Genotype& first_parent = population[genotype_index];
                 size_t index_second_parent = parent_choiser_->ChoiseParent(first_parent, population);
                 if (index_second_parent > N)
@@ -150,11 +148,11 @@ protected:
 private:
 
     /**
-     * @brief Вычисляет индексы M / 100 * N выживших особей
+     * @brief Вычисляет индексы survivor_count выживших особей
      * @param survivors[in] - массив с оценками насколько приспособлен геном
      * @return возвращает индексов массив выживших особей
      */
-    std::array<size_t, N> GetSurvivorIndex(const Survivors& survivors) const
+    std::array<size_t, N> GetSurvivorIndices(const Survivors& survivors) const
     {
         std::array<std::pair<size_t, double>, N> score;
         for (size_t index = 0; index < survivors.size(); ++index)
@@ -173,8 +171,8 @@ private:
         return survivor_index;
     }
 
-    const size_t mutation_count = static_cast<const size_t>(N / 100.0 * M);
-    const size_t survivor_count = static_cast<const size_t>(N / 100.0 * S);
+    static constexpr size_t mutation_count = static_cast<const size_t>(N / 100.0 * M);
+    static constexpr size_t survivor_count = static_cast<const size_t>(N / 100.0 * S);
     const Randomizer& randomizer_ = Randomizer::GetInstance();
 
     ISelectionFunctionPtr<Value, S, N> selector_ = nullptr;

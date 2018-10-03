@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <limits>
+#include <cassert>
 
 #include "GeneticAlgorithm/IParentChoiser.h"
 #include "GeneticAlgorithm/ISelectionFunction.h"
@@ -64,6 +65,21 @@ public:
     {
         return z_;
     }
+
+    void SetX(double x)
+    {
+        x_ = x;
+    }
+
+    void SetY(double y)
+    {
+        y_ = y;
+    }
+
+    void SetZ(double z)
+    {
+        z_ = z;
+    }
 };
 
 template <typename Genotype, typename Value, size_t N = 1000>
@@ -83,16 +99,16 @@ public:
         {
             length_score[index] = length_(parent, population[index]);
         }
-        const double zero_length = 0.0;
-        const auto& parent_iter = std::find(length_score.begin(), length_score.end(), zero_length);
-        *parent_iter = std::numeric_limits<double>::min();
+        const auto& parent_iter = std::min_element(length_score.begin(), length_score.end());
+        assert(*parent_iter >= 0.0);
+        *parent_iter = std::numeric_limits<double>::max();
         return static_cast<size_t>(std::distance(
                 std::begin(length_score),
                 std::max_element(length_score.begin(), length_score.end())));
     }
 
 private:
-    const std::function<double(const Genotype&, const Genotype&)>& length_;
+    std::function<double(const Genotype&, const Genotype&)> length_;
 };
 
 template <typename Value = double, size_t S = 20, size_t N = 1000>

@@ -24,19 +24,19 @@ using GeneticAlgorithmParameterPtr = std::shared_ptr<GeneticAlgorithmParameter>;
 /**
  * @brief Фабрика для создания объекта решения генетического алгоритма и его параметров
  */
+template <typename Genotype, size_t M, size_t N, typename Value, size_t S>
 class GeneticAlgorithmFactory
 {
-public:
+protected:
 
     /**
      * @brief возвращает функцию селекции
      * @tparam N - размер популяции
-     * @tparam Value - тип результата вычисления функции от гетотипа
+     * @tparam Value - тип результата вычисления функции от генотипа
      * @tparam S - процент выживших в одной популяции
      * @param parameter - параметр создания функции селекции
      * @return - функция селекции
      */
-    template <size_t N, typename Value, size_t S>
     static ISelectionFunctionPtr<Value, S, N> GetSelector(const GeneticAlgorithmParameterPtr& parameter)
     {
         if (parameter->selector_ == "simple_selector")
@@ -51,70 +51,78 @@ public:
     /**
      * @brief возвращает стратегию выбора родителя
      * @tparam Genotype - генотип
-     * @tparam Value - тип результата вычисления функции от гетотипа
+     * @tparam Value - тип результата вычисления функции от генотипа
      * @tparam N - размер популяции
      * @param parameter - параметр создания стратегии выбора родителя
      * @return стратегии выбора родителя
      */
-    template <typename Genotype, typename Value, size_t N>
     static IParentChoiserPtr<Genotype, Value, N> GetChooser(const GeneticAlgorithmParameterPtr& parameter)
     {
         if (parameter->chooser_ == "simple_chooser")
         {
             return std::make_shared<SimpleParentChooser<Genotype, Value, N>>(
-                    SimpleParentChooser<Genotype, Value, N>(Point::GetLength));
+                    SimpleParentChooser<Genotype, Value, N>(Genotype::GetLength));
         }
 
         throw std::runtime_error("Can't create parent chooser, incorrect parameter");
     }
 
-    /**
-     *
-     * @tparam Genotype
-     * @tparam Value
-     * @tparam N
-     * @param parameter
-     * @return
-     */
-    template <typename Genotype, typename Value, size_t N>
-    static IGeneticAlgorithmStrategyPtr<Genotype, Value, N> GetStrategy(const GeneticAlgorithmParameterPtr& parameter)
-    {
-        if (parameter->strategy_ == "simple_strategy")
-        {
-            return std::make_shared<SimpleGeneticAlgorithmStrategy<Genotype, Value, N>>(
-                    SimpleGeneticAlgorithmStrategy<Genotype, Value, N>());
-        }
+public:
 
-        throw std::runtime_error("Can't create strategy, incorrect parameter");
-    }
+    /**
+    * @brief возвращает стратегию для алгоритма
+    * @tparam Genotype - генотип
+    * @tparam Value - тип результата вычисления функции от генотипа
+    * @tparam N - размер популяции
+    * @param parameter - параметр создания стратегии для алгоритма
+    * @return стратегия для алгоритма
+    */
+    virtual IGeneticAlgorithmStrategyPtr<Genotype, Value, N> GetStrategy(const GeneticAlgorithmParameterPtr& parameter) const = 0;
 
     /**
      * @brief возвращает объект решения оптимизационной задачи
      * @tparam Genotype - генотип минимизируемой функции
      * @tparam M - процент мутируемых особей
      * @tparam N - размер популяции
-     * @tparam Value - тип результата вычисления функции от гетотипа
+     * @tparam Value - тип результата вычисления функции от генотипа
      * @tparam S - процент выживших генов в популяции
      * @param parameter - параметр задачи
      * @return объект решения оптимизационной задачи
      */
-    template <typename Genotype, size_t M, size_t N, typename Value, size_t S>
-    static GeneticAlgorithm<Genotype, M, N, Value, S> GetGeneticAlgorithm(
-            const GeneticAlgorithmParameterPtr& parameter)
+    virtual GeneticAlgorithm<Genotype, M, N, Value, S> GetGeneticAlgorithm(const GeneticAlgorithmParameterPtr& parameter) const = 0;
+};
+
+template <typename Genotype, size_t M, size_t N, typename Value, size_t S>
+using GeneticAlgotihmFactoryPtr = std::shared_ptr<GeneticAlgorithmFactory<Genotype, M, N, Value, S>>;
+
+template <size_t M, size_t N, size_t S>
+class GeneticAlgorithmFactoryPointToDouble : public GeneticAlgorithmFactory<Point, M, N, double, S>
+{
+public:
+    IGeneticAlgorithmStrategyPtr<Point, double, N> GetStrategy(const GeneticAlgorithmParameterPtr& parameter) const override
+    {
+        if (parameter->strategy_ == "simple_strategy")
+        {
+            return std::make_shared<SimpleGeneticAlgorithmStrategy<Point, double , N>>(
+                    SimpleGeneticAlgorithmStrategy<Point, double , N>());
+        }
+
+        throw std::runtime_error("Can't create strategy, incorrect parameter");
+    }
+
+    GeneticAlgorithm<Point, M, N, double, S> GetGeneticAlgorithm(const GeneticAlgorithmParameterPtr& parameter) const override
     {
         if (!parameter)
         {
             throw std::runtime_error("Empty factory parameter");
         }
 
-        return GeneticAlgorithm(
-                GetSelector<N, Value, S>(parameter),
-                GetChooser<Genotype, Value, N>(parameter),
-                GetStrategy<Genotype, Value, N>(parameter));
+        const ISelectionFunctionPtr<double, S, N>& selector = GeneticAlgorithmFactory<Point, M, N, double, S>::GetSelector(parameter);
+        const IParentChoiserPtr<Point, double, N>& chooser = GeneticAlgorithmFactory<Point, M, N, double, S>::GetChooser(parameter);
+        const IGeneticAlgorithmStrategyPtr<Point, double, N>& strategy = GetStrategy(parameter);
+        return GeneticAlgorithm<Point, M, N, double, S>(selector, chooser, strategy);
     }
 };
-
-using GeneticAlgotihmFactoryPtr = std::shared_ptr<GeneticAlgorithmFactory>;
 
 } // GeneticAlgorithm
 

@@ -33,7 +33,7 @@ public:
      */
     size_t GetNumber(size_t start, size_t finish) const
     {
-        return std::uniform_int_distribution<size_t>(start, finish)(gen);
+        return std::uniform_int_distribution<size_t>(start, finish - 1)(gen);
     }
 
     /**

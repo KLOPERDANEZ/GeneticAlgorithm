@@ -9,7 +9,7 @@ namespace GeneticAlgorithm
 /**
  * @brief Реализует стратегию выбора родителя
  * @tparam Genotype - генотип
- * @tparam Value - тип результата вычисления функции от гетотипа
+ * @tparam Value - тип результата вычисления функции от генотипа
  * @tparam N - размер популяции
  */
 template <typename Genotype, typename Value, size_t N = 1000>
