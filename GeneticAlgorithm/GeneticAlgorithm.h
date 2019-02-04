@@ -1,58 +1,35 @@
-#ifndef LAB_GENETICALGORITHM_H
-#define LAB_GENETICALGORITHM_H
+#pragma once
 
-#include <array>
+#include <vector>
 #include <algorithm>
+#include <cassert>
+#include <map>
 #include "ISelectionFunction.h"
-#include "IParentChoiser.h"
 #include "IGeneticAlgorithmStrategy.h"
 #include "Utils.h"
 
-namespace GeneticAlgorithm
+namespace GA
 {
 
-/**
- * @brief Класс реализующий решение оптимизационной задачи генетическим алгоритмом
- * Реализован посредством паттерна стратегия
- * https://ru.wikipedia.org/wiki/Генетический_алгоритм
- * @tparam Genotype - генотип минимизируемой функции
- * @tparam M - процент мутируемых особей
- * @tparam N - размер популяции
- * @tparam Value - тип результата вычисления функции от генотипа
- * @tparam S - процент выживших генов в популяции
- */
-template <typename Genotype, size_t M = 10, size_t N = 1000, typename Value = double, size_t S = 20>
+template <typename Genotype, typename ScoreValue>
 class GeneticAlgorithm
 {
-    using Population = std::array<Genotype, N>;
-    using ScorePopulation = std::array<Value, N>;
-    using Survivors = std::array<double, N>;
+    using Population = std::vector<Genotype>;
+    using ScorePopulation = std::vector<ScoreValue>;
+    using Index = size_t;
+    using GreatDoubleIndexMap = std::multimap<double, Index, std::greater<>>;
 
 public:
 
-    /**
-     * @brief Конструктор объекта для рассчета генетического алгоритма
-     * @param selector - объект дающий оцеку качества геномов
-     * @param parent_choiser - алгоритм выбора родителя
-     * @param strategy - описание исследуемой функции
-     */
     explicit GeneticAlgorithm(
-            const ISelectionFunctionPtr<Value, S, N>& selector,
-            const IParentChoiserPtr<Genotype, Value, N>& parent_choiser,
-            const IGeneticAlgorithmStrategyPtr<Genotype, Value, N>& strategy)
+            const ISelectionFunctionPtr<ScoreValue>& selector,
+            const IGeneticAlgorithmStrategyPtr<Genotype, ScoreValue>& strategy)
             : selector_(selector)
-            , parent_choiser_(parent_choiser)
             , strategy_(strategy)
     {
-        static_assert(M < 100 && S < 100, "Incorrect parameter genetic algorithm");
-
         if (!selector)
         {
             throw std::runtime_error("Empty selector");
-        }
-        if (!parent_choiser)
-        {
-            throw std::runtime_error("Empty parent chooser");
         }
         if (!strategy)
         {
@@ -60,129 +37,143 @@ public:
         }
     }
 
-    /**
-     * @brief Метод выполняет расчет оптимизационной задачи
-     * @param limit - максимальное количество итераций, по умолчанию 1000
-     * @return возвращает лучшую популяцию
-     */
-    std::pair<Population, ScorePopulation> Calculation(size_t limit = 1000)
+    std::pair<Population, ScorePopulation> Calculation(
+            const double mutation_part,
+            const double crossingover_part,
+            const size_t limit = 1000) const
     {
+        assert(mutation_part > 0.0 && mutation_part < 1.0);
+        assert(crossingover_part > 0.0 && mutation_part < 1.0);
+
+        size_t iteration_number = 0;
         current_population_ = strategy_->CreateStartPopulation();
-        CalculationCurrentPopulationFitness();
-        while (!strategy_->IsCorrectResult(current_population_, current_population_score_) && limit--)
+        current_population_score_.resize(current_population_.size());
+        ApplyFitnessFuntionToPopulation();
+
+		bool is_not_result_correct;
+	 	bool is_not_iter_limit;
+
+		do
         {
-            const Survivors& survivors = selector_->Selection(current_population_score_);
-            ApplyCrossingoverToPopulation(survivors, current_population_);
-            ApplyMutationToPopulation(current_population_);
-            CalculationCurrentPopulationFitness();
+            ApplyCrossingoverToPopulation(crossingover_part);
+            ApplyMutationToPopulation(mutation_part, iteration_number);
+			ApplyFitnessFuntionToPopulation();
+            iteration_number++;
+
+            is_not_result_correct = !strategy_->IsCorrectResult(current_population_, current_population_score_);
+            is_not_iter_limit = static_cast<const bool>(iteration_number < limit);
         }
+        while (is_not_result_correct && is_not_iter_limit);
+
         return { current_population_, current_population_score_ };
     }
 
 protected:
 
-    /**
-     * @brief Вычисляет значение функции во всей текущей популяции
-     */
-    void CalculationCurrentPopulationFitness()
+    void ApplyFitnessFuntionToPopulation() const
     {
-        ApplyFitnessFuntionToPopulation(current_population_, current_population_score_);
-    }
-
-    /**
-     * @brief Вычисляет значение функции у популяции
-     * @param population[in] - популяция для которой вычисляем функцию
-     * @param score_population[out] - значение функции
-     */
-    void ApplyFitnessFuntionToPopulation(const Population& population,
-            ScorePopulation& score_population) const
-    {
-        for (size_t index = 0; index < population.size(); ++index)
-        {
-            const auto& genotype = population[index];
-            score_population[index] = strategy_->FitnessFunction(genotype);
-        }
-    }
-
-    /**
-     * @brief Применение мутаций к mutation_count генотипам в популяции
-     * @param population[in, out] - популяция к которой применяем мутации
-     */
-    void ApplyMutationToPopulation(Population& population) const
-    {
-        for (size_t counter = 0; counter < mutation_count; ++counter)
-        {
-            const size_t index = randomizer_.GetNumber(0, population.size());
-            const Genotype &genotype = population[index];
-            population[index] = strategy_->Mutation(genotype);
-        }
-    }
-
-    /**
-     * @brief Применение кроссинговера ко всей выжившей популяции
-     * @param survivors[in] - массив с оценками насколько приспособлен геном
-     * @param population[out] - популяция
-     */
-    void ApplyCrossingoverToPopulation(const Survivors& survivors, Population& population) const
-    {
-        const auto& survivors_indices = GetSurvivorIndices(survivors);
-        for (size_t index = 0; index < survivors.size(); ++index)
-        {
-            if (std::find(survivors_indices.begin(), survivors_indices.begin() + survivor_count, index) ==
-            		survivors_indices.begin() + survivor_count)
-            {
-                const size_t survivor_index = randomizer_.GetNumber(0, survivor_count);
-                const size_t genotype_index = survivors_indices[survivor_index];
-                const Genotype& first_parent = population[genotype_index];
-                size_t index_second_parent = parent_choiser_->ChoiseParent(first_parent, population);
-                if (index_second_parent > N)
+        std::transform(current_population_.begin(), current_population_.end(), current_population_score_.begin(),
+                [this](const auto& genotype)
                 {
-                    throw std::runtime_error("Incorrect index second parent");
-                }
-                const Genotype& second_parent = population[index_second_parent];
-                population[index] = strategy_->Crossingover(first_parent, second_parent);
-            }
+                    return strategy_->FitnessFunction(genotype);
+                });
+    }
+
+    void ApplyMutationToPopulation(const double mutation_part, const size_t iteration_count) const
+    {
+        const size_t mutation_count = static_cast<size_t>(mutation_part * current_population_.size());
+
+        std::vector<typename Population::iterator> sampler(mutation_count);
+        sample_iterator(current_population_.begin(), current_population_.end(),
+                sampler.begin(), mutation_count, std::mt19937{std::random_device{}()});
+
+        for (auto& sample : sampler)
+        {
+            *sample = strategy_->Mutation(*sample, iteration_count);
         }
     }
+
+    void ApplyCrossingoverToPopulation(const double crossingover_part) const
+    {
+        const size_t crossingover_count = static_cast<const size_t>(current_population_.size() * crossingover_part);
+		const size_t not_crossingover_count = current_population_.size() - crossingover_count;
+
+		const GreatDoubleIndexMap& distribution_population = GetSurviveDistributionPopulation();
+		const std::vector<Index>& survives = GetSurviveIndices(crossingover_count, not_crossingover_count, distribution_population);
+
+		Crossingover(crossingover_count, not_crossingover_count, distribution_population, survives);
+	}
 
 private:
 
-    /**
-     * @brief Вычисляет индексы survivor_count выживших особей
-     * @param survivors[in] - массив с оценками насколько приспособлен геном
-     * @return возвращает индексов массив выживших особей
-     */
-    std::array<size_t, N> GetSurvivorIndices(const Survivors& survivors) const
-    {
-        std::array<std::pair<size_t, double>, N> score;
-        for (size_t index = 0; index < survivors.size(); ++index)
-        {
-            score[index] = { index, survivors[index] };
-        }
+	void Crossingover(
+			const size_t crossingover_count,
+			const size_t not_crossingover_count,
+			const GreatDoubleIndexMap& distribution_population,
+			const std::vector<Index>& survives) const
+	{
+		std::mt19937 generator(std::random_device{}());
+		std::uniform_int_distribution<Index> distribution(0, crossingover_count - 1);
 
-        std::sort(score.begin(), score.end(),
-                [](const auto& left, const auto& right) { return left.second < right.second; });
+		size_t count = 0;
+		auto distribution_population_iter = distribution_population.begin();
+		do
+		{
+			const auto& [score, index] = *distribution_population_iter++;
 
-        std::array<size_t, N> survivor_index;
-        for (size_t index = 0; index < survivor_count; ++index)
-        {
-            survivor_index[index] = score[index].first;
-        }
-        return survivor_index;
-    }
+			Index first_parent_index = distribution(generator);
+			Index second_parent_index = distribution(generator);
 
-    static constexpr size_t mutation_count = static_cast<const size_t>(N / 100.0 * M);
-    static constexpr size_t survivor_count = static_cast<const size_t>(N / 100.0 * S);
-    const Randomizer& randomizer_ = Randomizer::GetInstance();
+			const Genotype& first_parent = current_population_[survives[first_parent_index]];
+			const Genotype& second_parent = current_population_[survives[second_parent_index]];
 
-    ISelectionFunctionPtr<Value, S, N> selector_ = nullptr;
-    IParentChoiserPtr<Genotype, Value, N> parent_choiser_ = nullptr;
-    IGeneticAlgorithmStrategyPtr<Genotype, Value, N> strategy_ = nullptr;
+			const double first_score = current_population_score_[survives[first_parent_index]];
+			const double second_score = current_population_score_[survives[second_parent_index]];
 
-    Population current_population_;
-    ScorePopulation current_population_score_;
+			current_population_[index] = strategy_->Crossingover(first_parent, first_score, second_parent, second_score);
+		} while (count++ != not_crossingover_count);
+	}
+
+	std::vector<Index> GetSurviveIndices(
+			const size_t crossingover_count,
+			const size_t not_crossingover_count,
+			const GreatDoubleIndexMap& distribution_population) const
+	{
+		std::vector<Index> survives(crossingover_count);
+		auto start_survive_genotype_iterator = distribution_population.begin();
+		std::advance(start_survive_genotype_iterator, not_crossingover_count);
+		std::transform(
+				start_survive_genotype_iterator,
+				distribution_population.end(),
+				survives.begin(),
+				[](const auto& score_genotype)
+				{
+					return score_genotype.second;
+				});
+		return survives;
+	}
+
+	GreatDoubleIndexMap GetSurviveDistributionPopulation() const
+	{
+		const auto& survive_chance = selector_->Selection(current_population_score_);
+		GreatDoubleIndexMap distribution_population;
+		{
+			for (size_t index = 0; index < current_population_.size(); ++index)
+			{
+				distribution_population.emplace(survive_chance[index], index);
+			}
+		}
+		return distribution_population;
+	}
+
+    ISelectionFunctionPtr<ScoreValue> selector_;
+    IGeneticAlgorithmStrategyPtr<Genotype, ScoreValue> strategy_;
+
+    mutable Population current_population_;
+    mutable ScorePopulation current_population_score_;
 };
 
-} // GeneticAlgorithm
+template <typename Genotype, typename ScoreValue>
+using GeneticAlgorithmPtr = std::shared_ptr<GeneticAlgorithm<Genotype, ScoreValue>>;
 
-#endif //LAB_GENETICALGORITHM_H
+} // GeneticAlgorithm

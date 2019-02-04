@@ -1,34 +1,20 @@
-#ifndef LAB_ISELECTIONFUNCTION_H
-#define LAB_ISELECTIONFUNCTION_H
+#pragma once
 
-#include <array>
+#include <vector>
 #include <memory>
 
-namespace GeneticAlgorithm
+namespace GA
 {
 
-/**
- * \brief Интерфейс класса для функции селекции
- * @tparam Value - тип результата вычисления функции от генотипа
- * @tparam S - процент выживших в одной популяции
- * @tparam N - размер популяции
- */
-template <typename Value = double, size_t S = 20, size_t N = 1000>
+template <typename Value = double>
 class ISelectionFunction
 {
-    using ScorePopulation = std::array<Value, N>;
+    using ScorePopulation = std::vector<Value>;
 public:
-    /**
-     * @brief Вычисляет шанс остаться живым
-     * @param score_population[in] - оценка генома
-     * @return возвращает шанс остаться в живых
-     */
-    virtual std::array<double, N> Selection(const ScorePopulation& score_population) const = 0;
+    virtual std::vector<double> Selection(const ScorePopulation& score_population) const = 0;
 };
 
-template <typename Value = double, size_t S = 20, size_t N = 1000>
-using ISelectionFunctionPtr = std::shared_ptr<ISelectionFunction<Value, S, N>>;
+template <typename Value = double>
+using ISelectionFunctionPtr = std::shared_ptr<ISelectionFunction<Value>>;
 
 }
-
-#endif //LAB_ISELECTIONFUNCTION_H
