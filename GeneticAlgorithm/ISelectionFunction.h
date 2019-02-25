@@ -1,7 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <memory>
+#include "stable.h"
 
 namespace GA
 {
@@ -12,6 +11,8 @@ class ISelectionFunction
     using ScorePopulation = std::vector<Value>;
 public:
     virtual std::vector<double> Selection(const ScorePopulation& score_population) const = 0;
+
+    virtual ~ISelectionFunction() = default;
 };
 
 template <typename Value = double>

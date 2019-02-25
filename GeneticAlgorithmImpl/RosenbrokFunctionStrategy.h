@@ -27,6 +27,8 @@ public:
 
 	bool IsCorrectResult(const Population& population, const ScorePopulation& score_population) const override;
 
+	~RosenbrokFunctionStrategy() override = default;
+
 private:
 	size_t genotype_size_;
 

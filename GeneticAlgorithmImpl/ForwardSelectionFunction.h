@@ -17,4 +17,6 @@ public:
 	{
 		return score_population;
 	}
+
+	~ForwardSelectionFunction() override = default;
 };

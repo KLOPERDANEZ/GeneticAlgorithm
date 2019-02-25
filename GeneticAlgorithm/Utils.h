@@ -1,7 +1,6 @@
 #pragma once
 
-#include <random>
-#include <memory>
+#include "stable.h"
 
 namespace GA
 {
